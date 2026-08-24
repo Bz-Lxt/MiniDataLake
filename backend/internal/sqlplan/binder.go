@@ -216,7 +216,7 @@ func levenshtein(a, b string) int {
 }
 
 func ExpandStar(pl *Plan, t *storage.Table) {
-	out := pl.Projects[:0]
+	out := make([]*Expr, 0, len(pl.Projects)+len(t.Cols))
 	for _, p := range pl.Projects {
 		if p.Kind == KStar {
 			for _, c := range t.Cols {
