@@ -1,0 +1,26 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "18420:8080"
+    environment:
+      - TZ=Asia/Shanghai
+      - MDL_ADDR=:8080
+      - MDL_DATA_DIR=/data
+      - MDL_MEMORY_BUDGET_BYTES=1610612736
+      - MDL_MAX_UPLOAD_BYTES=134217728
+      - MDL_LOG_LEVEL=info
+      - MDL_API_TOKEN=
+    volumes:
+      - mdl_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/api/v1/health >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+
+volumes:
+  mdl_data:
