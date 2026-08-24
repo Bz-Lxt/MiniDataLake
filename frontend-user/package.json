@@ -1,0 +1,33 @@
+{
+  "name": "minidatalake-ui",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "5.2.5",
+    "@fontsource/ibm-plex-sans": "5.2.5",
+    "@monaco-editor/react": "4.7.0",
+    "@tanstack/react-query": "5.75.5",
+    "@tanstack/react-virtual": "3.13.6",
+    "lucide-react": "0.511.0",
+    "monaco-editor": "0.52.2",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zustand": "5.0.5"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.23",
+    "@types/react-dom": "18.3.7",
+    "@vitejs/plugin-react": "4.5.2",
+    "autoprefixer": "10.4.21",
+    "postcss": "8.5.4",
+    "tailwindcss": "3.4.17",
+    "typescript": "5.8.3",
+    "vite": "6.3.5"
+  }
+}
