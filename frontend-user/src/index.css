@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; margin: 0; }
+body {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #12324a55, transparent 50%),
+    linear-gradient(#071018, #071018);
+}
+
+.grid-overlay {
+  background-image:
+    linear-gradient(rgba(62, 207, 207, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(62, 207, 207, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><polyline points='1,1 6,6 11,1' fill='none' stroke='%23999' stroke-width='1.5'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #1e3348; border-radius: 8px; }
