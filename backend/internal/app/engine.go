@@ -157,7 +157,7 @@ func (e *Engine) runIngest(ctx context.Context, job persist.JobRec, path string)
 			upd(job)
 		},
 	})
-	if err != nil {
+	if ingestErr != nil {
 		if ctx.Err() != nil {
 			job.Status = "INTERRUPTED"
 			job.Error = "canceled"
