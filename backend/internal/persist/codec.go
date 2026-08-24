@@ -126,7 +126,7 @@ func packDict(v *encoding.DictVec) []byte {
 		binary.LittleEndian.PutUint32(buf[4+i*4:], id)
 	}
 	out := append(body, buf...)
-	return append(out, packNull(v.Dict().Nulls())...)
+	return append(out, packNull(v.Nulls())...)
 }
 
 func packRLE(v *encoding.RLEVec) []byte {
