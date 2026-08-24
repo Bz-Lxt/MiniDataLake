@@ -17,19 +17,19 @@ type Stats struct {
 }
 
 type Result struct {
-	Names  []string
-	Types  []types.DataType
-	Cols   []storage.Vector
-	Rows   int
+	Names   []string
+	Types   []types.DataType
+	Cols    []storage.Vector
+	Rows    int
 	Scanned int64
-	Plan   []ExplainNode
+	Plan    []ExplainNode
 }
 
 type ExplainNode struct {
-	Op     string         `json:"op"`
-	Detail string         `json:"detail"`
-	Rows   int64          `json:"est_rows"`
-	Kids   []ExplainNode  `json:"children,omitempty"`
+	Op     string        `json:"op"`
+	Detail string        `json:"detail"`
+	Rows   int64         `json:"est_rows"`
+	Kids   []ExplainNode `json:"children,omitempty"`
 }
 
 func Run(ctx context.Context, t *storage.Table, pl *sqlplan.Plan, batch int) (*Result, error) {
@@ -91,7 +91,7 @@ done:
 	if pl.HasLimit {
 		rows = applyLimit(rows, pl.Offset, pl.Limit)
 	}
-	res := materialize(aliases, rows)
+	res := materialize(pl, t, aliases, rows)
 	res.Scanned = st.Scanned.Load()
 	res.Plan = explainOf(pl, t, int64(res.Rows), res.Scanned)
 	return res, nil
@@ -225,21 +225,19 @@ func keyOf(r []types.Value) string {
 	return b.String()
 }
 
-func materialize(names []string, rows [][]types.Value) *Result {
+func materialize(pl *sqlplan.Plan, t *storage.Table, names []string, rows [][]types.Value) *Result {
 	ncols := len(names)
 	tys := make([]types.DataType, ncols)
 	for c := 0; c < ncols; c++ {
-		tys[c] = types.String
-		for _, r := range rows {
-			if c < len(r) && !r[c].Null {
-				tys[c] = r[c].Type
-				break
-			}
-		}
+		tys[c] = inferColType(pl, t, names, c, rows)
 	}
 	if len(rows) == 0 {
+		cols := make([]storage.Vector, ncols)
+		for i := range cols {
+			cols[i] = emptyVec(tys[i])
+		}
 		return &Result{
-			Names: names, Types: tys, Cols: make([]storage.Vector, ncols), Rows: 0,
+			Names: names, Types: tys, Cols: cols, Rows: 0,
 		}
 	}
 	builders := make([]*storage.Builder, ncols)
@@ -260,6 +258,86 @@ func materialize(names []string, rows [][]types.Value) *Result {
 		cols[i] = b.Finish()
 	}
 	return &Result{Names: names, Types: tys, Cols: cols, Rows: len(rows)}
+}
+
+// inferColType determines the result type for column c. When there are
+// matching rows the type is inferred from the first non-null value, just
+// like before. When the result is empty (no matching rows) we fall back
+// to the type declared on the underlying table column so that the schema
+// returned to the client is accurate instead of defaulting everything to
+// STRING.
+func inferColType(pl *sqlplan.Plan, t *storage.Table, names []string, c int, rows [][]types.Value) types.DataType {
+	for _, r := range rows {
+		if c < len(r) && !r[c].Null {
+			return r[c].Type
+		}
+	}
+	if c < len(pl.Projects) {
+		if ty, ok := projectType(pl, t, pl.Projects[c]); ok {
+			return ty
+		}
+	}
+	if c < len(names) {
+		if col, _, ok := t.ColByName(names[c]); ok {
+			return col.Meta.Type
+		}
+	}
+	return types.String
+}
+
+// projectType resolves the table-level type of a projected expression so
+// empty result sets still report correct column types.
+func projectType(pl *sqlplan.Plan, t *storage.Table, e *sqlplan.Expr) (types.DataType, bool) {
+	switch e.Kind {
+	case sqlplan.KCol:
+		if col, _, ok := t.ColByName(e.Name); ok {
+			return col.Meta.Type, true
+		}
+	case sqlplan.KAgg:
+		switch e.AggFn {
+		case "COUNT":
+			return types.Int64, true
+		case "SUM", "AVG":
+			return types.Float64, true
+		case "MIN", "MAX":
+			if len(e.Kids) > 0 {
+				if ty, ok := projectType(pl, t, e.Kids[0]); ok {
+					return ty, true
+				}
+			}
+		}
+	case sqlplan.KCast:
+		return e.CastTo, true
+	case sqlplan.KBin:
+		switch e.Op {
+		case sqlplan.OpAdd, sqlplan.OpSub, sqlplan.OpMul, sqlplan.OpDiv:
+			return types.Float64, true
+		}
+	}
+	for _, k := range e.Kids {
+		if ty, ok := projectType(pl, t, k); ok {
+			return ty, true
+		}
+	}
+	return types.String, false
+}
+
+// emptyVec returns a non-nil, zero-length vector of the given type so that
+// callers can safely invoke Vector methods (Len, MemBytes, Get, ...) on
+// empty result sets without dereferencing a nil interface.
+func emptyVec(t types.DataType) storage.Vector {
+	switch t {
+	case types.Int64:
+		return storage.NewInt64(nil, storage.NewBitmap(0))
+	case types.Float64:
+		return storage.NewFloat64(nil, storage.NewBitmap(0))
+	case types.Bool:
+		return storage.NewBool(nil, storage.NewBitmap(0))
+	case types.Timestamp:
+		return storage.NewTime(nil, storage.NewBitmap(0))
+	default:
+		return storage.NewStr(nil, []int32{0}, storage.NewBitmap(0))
+	}
 }
 
 func explainOf(pl *sqlplan.Plan, t *storage.Table, out, scanned int64) []ExplainNode {
