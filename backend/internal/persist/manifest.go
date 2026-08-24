@@ -127,9 +127,8 @@ func (s *Store) UpsertJob(j JobRec) error {
 	defer s.mu.Unlock()
 	for i, x := range s.m.Jobs {
 		if x.ID == j.ID {
-			err := s.flush()
 			s.m.Jobs[i] = j
-			return err
+			return s.flush()
 		}
 	}
 	s.m.Jobs = append(s.m.Jobs, j)
