@@ -248,6 +248,7 @@ func (s *Server) results(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	defer s.Eng.RS.Release(it.ID)
 	off, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 	lim, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if lim <= 0 {
@@ -273,6 +274,7 @@ func (s *Server) export(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	defer s.Eng.RS.Release(it.ID)
 	format := strings.ToLower(r.URL.Query().Get("format"))
 	if format == "json" {
 		w.Header().Set("Content-Type", "application/json")
@@ -307,8 +309,13 @@ func (s *Server) export(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) delResult(w http.ResponseWriter, r *http.Request) {
-	s.Eng.RS.Delete(r.PathValue("id"))
-	s.ok(w, map[string]any{"deleted": r.PathValue("id")})
+	id := r.PathValue("id")
+	if deferred := s.Eng.RS.Delete(id); deferred {
+		s.ok(w, map[string]any{"deleted": id, "deferred": true,
+			"message": "an export is in progress; cleanup will complete after it finishes"})
+		return
+	}
+	s.ok(w, map[string]any{"deleted": id})
 }
 
 func (s *Server) stats(w http.ResponseWriter, r *http.Request) {

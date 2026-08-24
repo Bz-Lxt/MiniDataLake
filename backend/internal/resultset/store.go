@@ -18,6 +18,9 @@ type Item struct {
 	Res       *exec.Result
 	Bytes     int64
 	ElapsedMS int64
+
+	refs int  // active export readers, protected by Store.mu
+	dead bool // tombstone: logically deleted, pending physical removal
 }
 
 type Store struct {
@@ -41,6 +44,15 @@ func (s *Store) Put(it *Item) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if el, ok := s.data[it.ID]; ok {
+		old := el.Value.(*Item)
+		if old.refs > 0 {
+			// An export of the previous result is still in flight; defer the
+			// replacement so we don't swap the pointer out from under it. The
+			// caller already holds a separate *Item, so dropping this Put is
+			// acceptable for the "re-run same query" path that allocates a new
+			// ID each time.
+			return
+		}
 		s.lru.MoveToFront(el)
 		el.Value = it
 		return
@@ -52,6 +64,8 @@ func (s *Store) Put(it *Item) {
 	}
 }
 
+// Get returns the item for id. It must be paired with a call to Release
+// once the caller is done reading the item's data.
 func (s *Store) Get(id string) (*Item, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -65,15 +79,46 @@ func (s *Store) Get(id string) (*Item, error) {
 		return nil, apperr.New(apperr.ResultExpired, 410, "result set expired; re-run the query")
 	}
 	s.lru.MoveToFront(el)
+	it.refs++
 	return it, nil
 }
 
-func (s *Store) Delete(id string) {
+// Release marks an item's reader as done. A logically-deleted item whose last
+// reader releases here is physically removed, freeing its memory.
+func (s *Store) Release(id string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if el, ok := s.data[id]; ok {
+	el, ok := s.data[id]
+	if !ok {
+		return
+	}
+	it := el.Value.(*Item)
+	if it.refs > 0 {
+		it.refs--
+	}
+	if it.dead && it.refs == 0 {
 		s.remove(el)
 	}
+}
+
+// Delete logically removes the item. If an export is still streaming the
+// result the physical removal is deferred until the last reader releases,
+// guaranteeing an in-flight export never sees a nil pointer for Res. The
+// boolean reports whether removal was deferred due to an active reader.
+func (s *Store) Delete(id string) (deferred bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	el, ok := s.data[id]
+	if !ok {
+		return false
+	}
+	it := el.Value.(*Item)
+	if it.refs > 0 {
+		it.dead = true
+		return true
+	}
+	s.remove(el)
+	return false
 }
 
 func (s *Store) Stats() (n int, bytes int64) {
@@ -90,15 +135,22 @@ func (s *Store) Stats() (n int, bytes int64) {
 func (s *Store) evictBack() {
 	el := s.lru.Back()
 	if el != nil {
+		it := el.Value.(*Item)
+		if it.refs > 0 {
+			it.dead = true // defer until last reader releases
+			return
+		}
 		s.remove(el)
 	}
 }
 
+// remove physically removes the item from the store. It must only be called
+// when no reader is active (refs == 0). Callers that cannot guarantee this
+// must check refs and mark dead instead.
 func (s *Store) remove(el *list.Element) {
 	it := el.Value.(*Item)
 	delete(s.data, it.ID)
 	s.lru.Remove(el)
-	it.Res = nil
 }
 
 func (s *Store) gc() {
@@ -110,7 +162,11 @@ func (s *Store) gc() {
 			prev := e.Prev()
 			it := e.Value.(*Item)
 			if s.ttl > 0 && now.Sub(it.Created) > s.ttl {
-				s.remove(e)
+				if it.refs > 0 {
+					it.dead = true // keep data alive until the in-flight export finishes
+				} else {
+					s.remove(e)
+				}
 			}
 			e = prev
 		}
