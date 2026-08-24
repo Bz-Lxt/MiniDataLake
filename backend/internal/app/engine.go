@@ -138,6 +138,10 @@ func (e *Engine) runIngest(ctx context.Context, job persist.JobRec, path string)
 	}
 	job.Hash = sum
 	if rec, ok := e.Store.FindHash(sum); ok {
+		// The ingestion estimate was reserved up front in StartIngest.
+		// Since we're reusing an existing table, release the estimate now;
+		// the actual table memory is already accounted for via the catalog.
+		e.Bud.Release(memgov.EstimateIngest(job.BytesTotal))
 		job.Status = "DONE"
 		job.Phase = "reused"
 		job.Table = rec.Name
@@ -223,7 +227,7 @@ func (e *Engine) Query(ctx context.Context, sql string) (*resultset.Item, error)
 	}
 	t, ok := e.Cat.Get(pl.Table)
 	if !ok {
-		return nil, apperr.Miss("table not found: " + pl.Table).With("hint", suggestTable(e.Cat, pl.Table))
+		return nil, apperr.Miss("table not found: "+pl.Table).With("hint", suggestTable(e.Cat, pl.Table))
 	}
 	if err := sqlplan.Bind(pl, t); err != nil {
 		return nil, err
