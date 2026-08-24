@@ -101,7 +101,11 @@ func (e *Engine) StartIngest(parent context.Context, filename, format, contentTy
 		Format: format, BytesTotal: n, CreatedAt: clock.Format(clock.Now()), UpdatedAt: clock.Format(clock.Now()),
 	}
 	_ = e.Store.UpsertJob(job)
-	ctx, cancel := context.WithCancel(parent)
+	// Detach from the request context so the background ingest survives
+	// after the HTTP connection closes. WithoutCancel preserves request-
+	// scoped values (e.g. request ID) but does not propagate the parent's
+	// cancellation. The stored cancel func still allows explicit cancel.
+	ctx, cancel := context.WithCancel(context.WithoutCancel(parent))
 	e.mu.Lock()
 	e.jobs[id] = cancel
 	e.mu.Unlock()
