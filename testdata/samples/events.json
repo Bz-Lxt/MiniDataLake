@@ -1,0 +1,4 @@
+{"event":{"id":1,"type":"click"},"user":{"city":"beijing"},"ts":"2026-08-01 10:00:00"}
+{"event":{"id":2,"type":"view"},"user":{"city":"shanghai"},"ts":"2026-08-01 10:01:00"}
+{"event":{"id":3,"type":"click"},"user":{"city":"beijing"},"ts":"2026-08-01 10:02:00"}
+{"event":{"id":4,"type":"buy"},"user":{"city":"shenzhen"},"ts":"2026-08-01 10:03:00"}
