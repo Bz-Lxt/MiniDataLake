@@ -1,0 +1,11 @@
+name,age,city,active,signup
+Ada,34,beijing,true,2024-01-15 09:00:00
+Bob,19,shanghai,false,2024-03-02 11:20:00
+Cara,41,beijing,true,2023-11-08 18:03:00
+Dan,27,shenzhen,true,2025-02-19 08:40:00
+Eve,33,shanghai,true,2024-07-01 14:15:00
+Finn,22,beijing,false,2025-06-12 10:00:00
+Gia,29,guangzhou,true,2024-09-30 16:45:00
+Hal,45,shanghai,true,2023-05-21 07:12:00
+Ivy,31,beijing,true,2024-12-03 20:08:00
+Jay,18,shenzhen,false,2026-01-09 13:33:00
