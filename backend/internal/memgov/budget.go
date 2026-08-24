@@ -2,7 +2,6 @@ package memgov
 
 import (
 	"sort"
-	"sync"
 	"sync/atomic"
 
 	"minidatalake/internal/apperr"
@@ -11,7 +10,6 @@ import (
 type Budget struct {
 	limit int64
 	used  atomic.Int64
-	mu    sync.Mutex
 	hint  func() []Victim
 }
 
@@ -34,8 +32,6 @@ func (b *Budget) Reserve(n int64) error {
 	if n <= 0 {
 		return nil
 	}
-	b.mu.Lock()
-	defer b.mu.Unlock()
 	for {
 		cur := b.used.Load()
 		if cur+n > b.limit {
@@ -51,8 +47,6 @@ func (b *Budget) Release(n int64) {
 	if n <= 0 {
 		return
 	}
-	b.mu.Lock()
-	defer b.mu.Unlock()
 	b.used.Add(-n)
 }
 
