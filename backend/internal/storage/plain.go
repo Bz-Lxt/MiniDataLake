@@ -215,7 +215,7 @@ func (v *StrVec) Get(i int) types.Value {
 }
 func (v *StrVec) Take(sel []int) Vector {
 	var data []byte
-	off := v.offsets[:0]
+	off := make([]int32, 0, len(sel)+1)
 	off = append(off, 0)
 	nb := NewBitmap(len(sel))
 	for i, s := range sel {
