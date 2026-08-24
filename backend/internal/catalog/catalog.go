@@ -10,11 +10,11 @@ import (
 )
 
 type Catalog struct {
-	mu    sync.RWMutex
+	mu     sync.RWMutex
 	tables map[string]*storage.Table
-	store *persist.Store
-	dir   string
-	bud   *memgov.Budget
+	store  *persist.Store
+	dir    string
+	bud    *memgov.Budget
 }
 
 func Open(dir string, store *persist.Store, bud *memgov.Budget) (*Catalog, error) {
@@ -53,19 +53,23 @@ func Open(dir string, store *persist.Store, bud *memgov.Budget) (*Catalog, error
 func (c *Catalog) Put(t *storage.Table) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if old, ok := c.tables[t.Name]; ok && c.bud != nil {
-		c.bud.Release(old.MemBytes())
-	}
-	c.tables[t.Name] = t
 	path := filepath.Join(c.dir, t.Name+".mdl")
 	if err := persist.WriteTable(path, t); err != nil {
 		return err
 	}
-	return c.store.UpsertTable(persist.TableRec{
+	if err := c.store.UpsertTable(persist.TableRec{
 		Name: t.Name, SourceFile: t.SourceFile, Hash: t.ContentHash, Format: t.Format,
 		MDLPath: path, Rows: t.Rows, FileBytes: t.FileBytes, CreatedAt: t.CreatedAt,
 		Status: t.Status, Rejected: t.Rejected,
-	})
+	}); err != nil {
+		_ = persist.DeleteFile(path)
+		return err
+	}
+	if old, ok := c.tables[t.Name]; ok && c.bud != nil {
+		c.bud.Release(old.MemBytes())
+	}
+	c.tables[t.Name] = t
+	return nil
 }
 
 func (c *Catalog) Get(name string) (*storage.Table, bool) {

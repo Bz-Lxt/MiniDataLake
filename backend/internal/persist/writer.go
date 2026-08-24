@@ -43,7 +43,10 @@ func WriteTable(path string, t *storage.Table) (err error) {
 	defer func() {
 		f.Close()
 		if !ok {
-			err = os.Remove(tmp)
+			// Best-effort cleanup of the temp file. The removal error must not
+			// overwrite the real error that caused ok to stay false (e.g. a
+			// failed rename because the target path is an existing directory).
+			_ = os.Remove(tmp)
 		}
 	}()
 
