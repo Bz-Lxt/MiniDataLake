@@ -1,0 +1,44 @@
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Go
+backend/bin/
+backend/coverage.out
+backend/coverage.html
+*.test
+vendor/
+
+# Node
+frontend-user/node_modules/
+frontend-user/dist/
+frontend-admin/node_modules/
+frontend-mp/node_modules/
+tests/node_modules/
+tests/playwright-report/
+tests/test-results/
+
+# Runtime data (keep testdata fixtures)
+data/
+*.mdl
+*.mdl.tmp
+backend/data/
+
+# Env / secrets
+.env
+.env.local
+MDL_API_TOKEN
+
+# SOP lock (local activation marker; keep tracked if empty is desired)
+# .alkaid-sop is tracked as the protocol lock file
+
+# Logs
+*.log
+/docs/
+/.alkaid-sop
+/CLAUDE.md
+/AGENTS.md
+/.cursorrules
+/.github/
