@@ -207,8 +207,8 @@ func convExpr(n ast.ExprNode) (*Expr, error) {
 	case *test_driver.ValueExpr:
 		return Lit(datum(e.GetValue())), nil
 	case *ast.ParenthesesExpr:
-		var out *Expr
-		if out, err := convExpr(e.Expr); err != nil {
+		out, err := convExpr(e.Expr)
+		if err != nil {
 			return out, err
 		}
 		return out, nil
