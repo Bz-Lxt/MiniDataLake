@@ -1,0 +1,9 @@
+.git
+**/node_modules
+frontend-user/dist
+backend/data
+data
+**/.DS_Store
+docs
+*.md
+testdata/bench_20k.csv
