@@ -12,18 +12,21 @@ import (
 )
 
 func ReadTable(path string) (*storage.Table, error) {
+	st, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	if st.IsDir() {
+		return nil, apperr.New(apperr.TableCorrupted, 409, "mdl path is a directory, not a file: "+path)
+	}
+	if st.Size() < int64(HeaderN+12) {
+		return nil, apperr.New(apperr.TableCorrupted, 409, "mdl file too small")
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	st, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-	if st.Size() < int64(HeaderN+12) {
-		return nil, apperr.New(apperr.TableCorrupted, 409, "mdl file too small")
-	}
 
 	hdr := make([]byte, HeaderN)
 	if _, err := io.ReadFull(f, hdr); err != nil {

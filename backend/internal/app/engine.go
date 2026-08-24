@@ -137,7 +137,7 @@ func (e *Engine) runIngest(ctx context.Context, job persist.JobRec, path string)
 		return
 	}
 	job.Hash = sum
-	if rec, ok := e.Store.FindHash(sum); ok {
+	if rec, ok := e.Store.FindHash(sum); ok && persist.MDLExists(rec.MDLPath) {
 		job.Status = "DONE"
 		job.Phase = "reused"
 		job.Table = rec.Name
